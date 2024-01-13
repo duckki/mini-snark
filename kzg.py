@@ -23,8 +23,8 @@ def setup( n ):
 def commit( pp, f ) -> bls12_381_symm:
     assert len(pp) >= len(f.poly)
     # Compute f0 * H0 + f1 * H1 + ... + fd * Hd, where
-    # - fn is the n-th coefficient of f.
-    # - Hn is the n-th public parameter.
+    # - fn is the n-th coefficient of f (`f.poly[i]`).
+    # - Hn is the n-th public parameter (`pp[i]`).
     # - Using `reduce`, instead of `sum` to add up without the start value.
     return reduce(add, [f.poly[i] * pp[i] for i in range(len(f.poly))])
 
