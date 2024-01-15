@@ -19,12 +19,9 @@ def setup( n ):
     return (pp, alpha)
 
 # `f`: a polynomial to commit
-# returns `f(alpha) * G`
+# returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
 def commit( pp, f ) -> bls12_381_symm:
     assert len(pp) >= len(f.coeff)
-    # Compute f0 * H0 + f1 * H1 + ... + fd * Hd, where
-    # - fn is the n-th coefficient of f (`f.coeff[i]`).
-    # - Hn is the n-th public parameter (`pp[i]`).
     # - Using `reduce`, instead of `sum` to add up without the start value.
     return reduce(add, [f.coeff[i] * pp[i] for i in range(len(f.coeff))])
 
