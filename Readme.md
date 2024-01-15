@@ -8,10 +8,10 @@ I think I got the simplest implementation of KZG PCS, complementing Dan's presen
 
 ## Directory layout
 
-* [`bls12.py`](bls12.py): A symmetric adaptation of the BLS12-381 curve.
 * [`field.py`](field.py): Implementation of finite field arithmetic and polynomial.
-* [`kzg.py`](kzg.py): A simple KZG PCS implementation.
-* [`kzg-complete.py`](kzg-complete.py): A complete version of KZG PCS.
+* [`bls12.py`](bls12.py): A symmetric adaptation of the BLS12-381 curve.
+* [`kzg-simple.py`](kzg-simple.py): A simple KZG PCS implementation.
+* [`kzg.py`](kzg.py): A complete implementation of KZG PCS.
 
 ### Credit
 
@@ -19,7 +19,7 @@ The BLS part is beyond my head and I took the code from [the babySNARK repo](htt
 
 ## Explanation of KZG implementation
 
-The `kzg.py` is the main KZG PCS implementation. It's only 22 lines of code, excluding comments and empty lines.
+The `kzg-simple.py` is a simplified version of KZG PCS implementation. It's only 22 lines of code, excluding comments and empty lines.
 
 ### Background
 Assuming you watched Dan's presentation linked above, most of the code should be easy to follow, except for the pairing part. KZG uses elliptic curve cryptography with pairing, which is the magic behind it. The polynomials we are going to prove/verify will be over a finite field `F` of order `p` and we will use a subgroup `G` as described in Dan's talk. But, one thing to note is that those `p`, which defines `F`, and the generator of `G` are not just any field or generator. They are specific ones handpicked by cryptographers so the `G` has a superpower of being on an elliptic curve (thus, one can't derive `x` from `x * G`) and having a pairing property. One well-known such curve is BLS12 and it's implemented in the `py-ecc` package from the Ethereum foundation.
@@ -28,7 +28,7 @@ While Dan's presentation skips over on the pairing part, this [YouTube video](ht
 
 For any `a` and `b`,
 ```python
-    e((a + b)*G, G) == e(a*G, G) * e(b*G, G)  # in Python
+    e((a + b)*G, G) == e(a*G, G) * e(b*G, G)  # expressed in Python
     e(G, (a + b)*G) == e(G, a*G) * e(G, b*G)
 ```
 
@@ -112,7 +112,7 @@ The chain of implication from (1) to (7) is fine. However, the other direction o
 
 ## Complete Version of KZG
 
-The `kzg-complete.py` is a complete version of KZG PCS. It's following a paper by Maksym Petkus, ["Why and how zk-SNARK works" (2019)](https://arxiv.org/abs/1906.07221). To follow the paper's notation, I renamed the secret key to `s`, from `alpha` and the new `alpha` represents the random shift value.
+The `kzg.py` is the complete version of KZG PCS. It's following a paper by Maksym Petkus, ["Why and how zk-SNARK works" (2019)](https://arxiv.org/abs/1906.07221). To follow the paper's notation, I renamed the secret key to `s`, from `alpha` and the new `alpha` represents the random shift value.
 
 Following features were added on top of the basic KZG version:
 
