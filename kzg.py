@@ -21,12 +21,12 @@ def setup( n ):
 # `f`: a polynomial to commit
 # returns `f(alpha) * G`
 def commit( pp, f ) -> bls12_381_symm:
-    assert len(pp) >= len(f.poly)
+    assert len(pp) >= len(f.coeff)
     # Compute f0 * H0 + f1 * H1 + ... + fd * Hd, where
-    # - fn is the n-th coefficient of f (`f.poly[i]`).
+    # - fn is the n-th coefficient of f (`f.coeff[i]`).
     # - Hn is the n-th public parameter (`pp[i]`).
     # - Using `reduce`, instead of `sum` to add up without the start value.
-    return reduce(add, [f.poly[i] * pp[i] for i in range(len(f.poly))])
+    return reduce(add, [f.coeff[i] * pp[i] for i in range(len(f.coeff))])
 
 # Prove `f(u) = v`.
 def prove( pp, f, u, v ) -> (bls12_381_symm, bls12_381_symm):

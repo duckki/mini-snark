@@ -172,21 +172,21 @@ def trim_trailing_zeros(l: list):
 class Polynomial:
     # coefficients: a list of FieldElement values
     def __init__(self, field, coefficients, var='x'):
-        # Internally storing the coefficients in self.poly, least-significant (i.e. free term)
+        # Internally storing the coefficients in self.coeff, least-significant (i.e. free term)
         # first, so $9 - 3x^2 + 19x^5$ is represented internally by the list  [9, 0, -3, 0, 0, 19].
         # Note that coefficients is copied, so the caller may freely modify the given argument.
         self.field = field
-        self.poly = trim_trailing_zeros(coefficients)
+        self.coeff = trim_trailing_zeros(coefficients)
         self.var = var
 
     def __repr__(self):
         result = ""
-        for i, coeff in enumerate(self.poly[::-1]):
+        for i, coeff in enumerate(self.coeff[::-1]):
             if coeff == 0:
                 continue
             if len(result) > 0:
                 result += " + "
-            deg = len(self.poly) - i - 1
+            deg = len(self.coeff) - i - 1
             if deg == 0 or coeff != 1: # if coffecient is not elided
                 result += str(coeff)
             if deg == 1:
@@ -212,21 +212,21 @@ class Polynomial:
 
     def __eq__(self, other):
         other = self.typecast(other)
-        return self.poly == other.poly
+        return self.coeff == other.coeff
 
     def __neg__(self):
-        return Polynomial(self.field, [-c for c in self.poly])
+        return Polynomial(self.field, [-c for c in self.coeff])
 
     def __add__(self, other):
         other = self.typecast(other)
-        zip_poly = zip_longest(self.poly, other.poly, fillvalue=self.field.zero())
+        zip_poly = zip_longest(self.coeff, other.coeff, fillvalue=self.field.zero())
         return Polynomial(self.field, [l + r for (l, r) in zip_poly])
 
     __radd__ = __add__  # To support <int> + <Polynomial> (as in `1 + x + x**2`).
 
     def __sub__(self, other):
         other = self.typecast(other)
-        zip_poly = zip_longest(self.poly, other.poly, fillvalue=self.field.zero())
+        zip_poly = zip_longest(self.coeff, other.coeff, fillvalue=self.field.zero())
         return Polynomial(self.field, [l - r for (l, r) in zip_poly])
 
     def __rsub__(self, other):  # To support <int> - <Polynomial> (as in `1 - x + x**2`).
@@ -236,13 +236,13 @@ class Polynomial:
         """
         Multiplies polynomial by a scalar factor
         """
-        return Polynomial(self.field, [c * scalar for c in self.poly])
+        return Polynomial(self.field, [c * scalar for c in self.coeff])
 
     def __mul__(self, other):
         other = self.typecast(other)
         res = [0] * (self.degree() + other.degree() + 1)
         # perform integer operations for performance
-        pol1, pol2 = ([x.val for x in p.poly] for p in (self, other))
+        pol1, pol2 = ([x.val for x in p.coeff] for p in (self, other))
         for i, c1 in enumerate(pol1):
             for j, c2 in enumerate(pol2):
                 res[i + j] += c1 * c2
@@ -270,9 +270,9 @@ class Polynomial:
         * Assert that g is not the zero polynomial.
         """
         other = self.typecast(other)
-        pol2 = trim_trailing_zeros(other.poly)
+        pol2 = trim_trailing_zeros(other.coeff)
         assert pol2, 'Dividing by zero polynomial.'
-        pol1 = trim_trailing_zeros(self.poly)
+        pol1 = trim_trailing_zeros(self.coeff)
         if not pol1:
             return [], []
         rem = pol1
@@ -307,7 +307,7 @@ class Polynomial:
         number of trailing zeros (if they exist) minus 1.
         This implies that the degree of the zero polynomial will be -1.
         """
-        return len(trim_trailing_zeros(self.poly)) - 1
+        return len(trim_trailing_zeros(self.coeff)) - 1
 
     def get_nth_degree_coefficient(self, n):
         """
@@ -316,7 +316,7 @@ class Polynomial:
         if n > self.degree():
             return self.field.zero()
         else:
-            return self.poly[n]
+            return self.coeff[n]
 
     def compose(self, other):
         """
@@ -329,7 +329,7 @@ class Polynomial:
         """
         other = self.typecast(other)
         res = Polynomial(self.field, [])
-        for coef in self.poly[::-1]:
+        for coef in self.coeff[::-1]:
             res = (res * other) + Polynomial(self.field, [coef])
         return res
 
@@ -340,7 +340,7 @@ class Polynomial:
         # Using int operations within the loop to speed up.
         point = self.field(point).val
         val = 0
-        for coef in self.poly[::-1]:
+        for coef in self.coeff[::-1]:
             val = (val * point + coef.val) % self.field.order
         return FieldElement(self.field, val)
 

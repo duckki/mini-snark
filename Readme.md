@@ -61,9 +61,9 @@ The prover has two functions: `commit` and `prove`. Their implementation follows
 # Warning: slightly simplified for clarity.
 def commit( pp, f ):
     # Compute f0 * H0 + f1 * H1 + ... + fd * Hd, where
-    # - fn is the n-th coefficient of f (`f.poly[i]`).
+    # - fn is the n-th coefficient of f (`f.coeff[i]`).
     # - Hn is the n-th public parameter (`pp[i]`).
-    return sum([f.poly[i] * pp[i] for i in range(len(f.poly))])
+    return sum([f.coeff[i] * pp[i] for i in range(len(f.coeff))])
 ```
 
 ```python
