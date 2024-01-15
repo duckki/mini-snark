@@ -77,6 +77,16 @@ class Field:
         """
         return self.monomial(1, self.one())
 
+    def vanishing_polynomial( self, roots ):
+        """
+        returns: p(X) = (X-r1)*(X-r2)*...*(X-rn)
+        """
+        X = self.X
+        p = self.monomial(0, self.one()) # p(x) = 1
+        for r in roots:
+            p *= (X - r)
+        return p
+
 # end class Field
 
 
