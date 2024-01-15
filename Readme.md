@@ -27,13 +27,17 @@ While Dan's presentation skips over on the pairing part, this [YouTube video](ht
 
 For any `a` and `b`,
 ```python
-    e(a*G, b*G) == e(G, G) ** (a*b)  # in Python
+    e((a + b)*G, G) == e(a*G, G) * e(b*G, G)  # in Python
+    e(G, (a + b)*G) == e(G, a*G) * e(G, b*G)
 ```
 
-As corollary,
+As corollary, the following are also true:
 
 ```python
-    e(a*b*G, G) == e(G, G) ** (a*b) == e(a*G, b*G)
+    e(a*G, G) == e(G, G) ** a
+    e(G, a*G) == e(G, G) ** a
+    e(a*G, b*G) == e(G, G) ** (a*b)
+    e(a*b*G, G) == e(b*G, G) ** a == e(G, G) ** (a*b)
 ```
 
 That's all we need to know about `e` to understand KZG.
