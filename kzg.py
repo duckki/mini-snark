@@ -5,13 +5,13 @@
 # - Improved Zero-Knowledge property by randomly shifting the commitments.
 from functools import reduce
 from operator import add
-from bls12 import bls12_381_symm
+from bls12 import bls12_381_symm as bls12_381
 from field import Field
 
 # A curated selection of a finite field and subgroup generator G.
-FieldElement = Field(bls12_381_symm.order)
-G = bls12_381_symm.G
-e = bls12_381_symm.pair  # the pairing operator `e`
+FieldElement = Field(bls12_381.order)
+G = bls12_381.G
+e = bls12_381.pair  # the pairing operator `e`
 
 # Trusted setup
 # - input `n`: the maximum number of polynomial coefficients allowed in the scheme.
@@ -25,18 +25,18 @@ def setup( n, t ):
     alpha = FieldElement.random_element()
     pk = ( [G * s ** i for i in range(n)] \
          , [G * s ** i * alpha for i in range(n)] )
-    vk = ( G * t(s), G * alpha )
+    vk = ( G * s, G * t(s), G * alpha )
     return (pk, vk, s, alpha)
 
 # input `f`: a polynomial to commit
 # returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
-def commit( H, f ) -> bls12_381_symm:
+def commit( H, f ) -> bls12_381:
     assert len(H) >= len(f.coeff)
     # - Using `reduce`, instead of `sum` to add up without the start value.
     return reduce(add, [f.coeff[i] * H[i] for i in range(len(f.coeff))])
 
 # Prove `f(r_i) = 0` for all roots `r_i` of `t`.
-def prove( pk, f, t ) -> (bls12_381_symm, bls12_381_symm, bls12_381_symm):
+def prove( pk, f, t ) -> (bls12_381, bls12_381, bls12_381):
     # the quotient polynomial `h`
     # - `h` should be a polynomial, if `f` share the same roots of `t`.
     h = f / t
@@ -50,10 +50,25 @@ def prove( pk, f, t ) -> (bls12_381_symm, bls12_381_symm, bls12_381_symm):
     delta = FieldElement.random_element()
     return (com_f * delta, com_h * delta, com_f2 * delta)
 
-# Verify `com_f == t(s) * com_h` and `com_f2 == com_f * alpha`.
-def verify( vk, com_f, com_h, com_f2 ) -> bool:
-    return  e( com_f, G ) == e( vk[0], com_h ) \
-        and e( com_f2, G ) == e( com_f, vk[1] )
+# Verify at one point: `f(u) = v` via h s.t h(X) = (f(X) - v) / (X - u).
+def verify_point( E_s, com_f, com_h, u, v ) -> bool:
+    # Goal: `(s - u) * com_h == com_f - v * G`
+    return e(E_s, com_h) == e(com_f + -(v * G) + u * com_h, G)
+
+# Verify at roots of t: `f(r) = 0` for all roots `r` of `t` via `h` where
+# - h(X) = f(X) / t(X)
+def verify_roots( E_ts, com_f, com_h ) -> bool:
+    return e( com_f, G ) == e( E_ts, com_h )
+
+# Verify shifted value: f2(X) == f(X) * alpha
+def verify_shift( E_alpha, com_f, com_f2 ) -> bool:
+    return e( com_f2, G ) == e( com_f, E_alpha )
+
+# Verify both roots and shift at the same time.
+def verify( vk, pi ) -> bool:
+    com_f, com_h, com_f2 = pi
+    return  verify_roots( vk[1], com_f, com_h ) \
+        and verify_shift( vk[2], com_f, com_f2 )
 
 
 # ============================================================================
@@ -80,16 +95,16 @@ def unit_test():
     print( "com_f2:", com_f2 )
 
     print( "Verifying..." )
-    assert verify( vk, com_f, com_q, com_f2 )
+    assert verify( vk, (com_f, com_q, com_f2) )
 
     wrong_com_f = -com_f
-    assert not verify( vk, wrong_com_f, com_q, com_f2 )
+    assert not verify( vk, (wrong_com_f, com_q, com_f2) )
 
     wrong_com_q = -com_q
-    assert not verify( vk, com_f, wrong_com_q, com_f2 )
+    assert not verify( vk, (com_f, wrong_com_q, com_f2) )
 
     wrong_com_f2 = -com_f2
-    assert not verify( vk, com_f, com_q, wrong_com_f2 )
+    assert not verify( vk, (com_f, com_q, wrong_com_f2) )
 
     print( "Success!" )
 
