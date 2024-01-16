@@ -371,6 +371,70 @@ class Polynomial:
 
 
 # ============================================================================
+# Lagrange Polynomial Interpolation
+
+def prod(values):
+    """
+    Computes a product.
+    """
+    len_values = len(values)
+    if len_values == 0:
+        return 1
+    if len_values == 1:
+        return values[0]
+    return prod(values[:len_values // 2]) * prod(values[len_values // 2:])
+
+def calculate_lagrange_polynomials(x_values):
+    """
+    Given the x_values for evaluating some polynomials, it computes part of the lagrange polynomials
+    required to interpolate a polynomial over this domain.
+    """
+    assert len(x_values) > 0
+    field = x_values[0].field
+    lagrange_polynomials = []
+    monomials = [field.monomial(1, field.one()) -
+                 field.monomial(0, x) for x in x_values]
+    numerator = prod(monomials)
+    for j in range(len(x_values)):
+        # In the denominator, we have:
+        # (x_j-x_0)(x_j-x_1)...(x_j-x_{j-1})(x_j-x_{j+1})...(x_j-x_{len(X)-1})
+        denominator = prod([x_values[j] - x for i, x in enumerate(x_values) if i != j])
+        # Numerator is a bit more complicated, since we need to compute a poly multiplication here.
+        # Similarly to the denominator, we have:
+        # (x-x_0)(x-x_1)...(x-x_{j-1})(x-x_{j+1})...(x-x_{len(X)-1})
+        cur_poly, _ = divmod(numerator, monomials[j].scalar_mul(denominator))
+        lagrange_polynomials.append(cur_poly)
+    return lagrange_polynomials
+
+def interpolate_poly_lagrange(y_values, lagrange_polynomials):
+    """
+    :param y_values: y coordinates of the points.
+    :param lagrange_polynomials: the polynomials obtained from calculate_lagrange_polynomials.
+    :return: the interpolated poly/
+    """
+    assert len(y_values) > 0
+    field = y_values[0].field
+    poly = field.Polynomial([])
+    for j, y_value in enumerate(y_values):
+        poly += lagrange_polynomials[j].scalar_mul(y_value)
+    return poly
+
+
+def interpolate_poly(x_values, y_values):
+    """
+    Returns a polynomial of degree < len(x_values) that evaluates to y_values[i] on x_values[i] for
+    all i.
+    """
+    assert len(x_values) == len(y_values)
+    assert all(isinstance(val, FieldElement) for val in x_values),\
+        'Not all x_values are FieldElement'
+    lp = calculate_lagrange_polynomials(x_values)
+    assert all(isinstance(val, FieldElement) for val in y_values),\
+        'Not all y_values are FieldElement'
+    return interpolate_poly_lagrange(y_values, lp)
+
+
+# ============================================================================
 # Unit test
 
 def unit_test():
