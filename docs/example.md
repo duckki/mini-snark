@@ -120,3 +120,10 @@ The catch is that the verifier would now need `pk[0]` (the value of `G * s`) as 
 5. `assert e(vk[0], pi_r) ** (a/r) == e(vk[1], pi_op) * e(vk[0], G) ** (stmt/r)` (similar steps 2-4 for `pi_o`)
 
 Therefore, the assertion in (5) can be computed directly by the verifier without `pi_l` nor `pk[0]`.
+
+
+## Missing elements
+
+The examples lack some Zero-Knowledge aspect of `kzg.prove` (shifting the proof by a random delta), which needs to be implemented.
+
+Also, the examples are still not quite SNARK, since the simulation of interactive proof is not implemented, yet.
