@@ -1,3 +1,6 @@
+# A single operation zk-SNARK example, albeit incomplete.
+# The design of computation/operation is based on the chapters 4.1 through 4.4
+# from "Why and how zk-SNARK works" (https://arxiv.org/abs/1906.07221).
 import kzg
 
 FieldElement = kzg.FieldElement
@@ -12,21 +15,18 @@ def setup( r ):
 
 
 def prover( pk, r, a ):
-    # the operation `l * r = o`
+    # compute the witness and statement values
     wit = FieldElement.random_element() # witness
     stmt = a * wit # statement
     print( "stmt:", stmt )
     print( "wit:", wit )
 
-    # polynomials
+    # polynomials representing the operation `l * r = o`
     X = FieldElement.X
     t = (X - r)
-
     p_l = X * (a / r)
     p_r = X * (wit / r)
     p_o = X * (stmt / r)
-    h_a = (p_l - a) / t             # first input value
-    h_stmt = (p_o - stmt) / t       # output statement
     h_op = (p_l * p_r - p_o) / t    # operational relationship
 
     # commitments
@@ -36,29 +36,20 @@ def prover( pk, r, a ):
     pi_l2 = kzg.commit( pk[1], p_l ) # a shift of p_l
     pi_r2 = kzg.commit( pk[1], p_r ) # a shift of p_r
     pi_o2 = kzg.commit( pk[1], p_o ) # a shift of p_o
-    pi_a = kzg.commit( pk[0], h_a )
-    pi_stmt = kzg.commit( pk[0], h_stmt )
     pi_op = kzg.commit( pk[0], h_op )
-    return (stmt, (pi_l, pi_r, pi_o, pi_l2, pi_r2, pi_o2, pi_a, pi_stmt, pi_op))
+    return (stmt, (pi_l, pi_r, pi_o, pi_l2, pi_r2, pi_o2, pi_op))
 # end def prover
 
 
-def verifier( vk, r, a, stmt, pi ):
-    pi_l, pi_r, pi_o, pi_l2, pi_r2, pi_o2, pi_a, pi_stmt, pi_op = pi
+def verifier( vk, pi ):
+    pi_l, pi_r, pi_o, pi_l2, pi_r2, pi_o2, pi_op = pi
 
     # polynomial restriction check
     assert kzg.verify_shift( vk[2], pi_l, pi_l2 )
     assert kzg.verify_shift( vk[2], pi_r, pi_r2 )
     assert kzg.verify_shift( vk[2], pi_o, pi_o2 )
 
-    # input/output checks
-    # assert: l'(r) == a
-    assert kzg.verify_point( vk[0], pi_l, pi_a, r, a )
-    # assert: o'(r) == stmt
-    assert kzg.verify_point( vk[0], pi_o, pi_stmt, r, stmt )
-
     # operation check
-    # assert: l'(X) * r'(X) - o'(X) == op'(X)
     assert e(pi_l, pi_r) == e(vk[1], pi_op) * e(pi_o, G)
 # end def verifier
 
@@ -67,8 +58,10 @@ def main():
     print( "Field order:", FieldElement.order )
 
     # Fixed public configuration
-    r = FieldElement(7) # generator of polynomial roots
-    a = FieldElement(1) # fixed input value
+    # - r: A random generator for the polynomial roots
+    # - a: One of the input operands
+    r = FieldElement(7)
+    a = FieldElement(11748457154244067814715434074073542859880617394130524462)
 
     # Setup
     pk, vk = setup( r )
@@ -77,7 +70,7 @@ def main():
     stmt, pi = prover( pk, r, a )
 
     # Verifier
-    verifier( vk, r, a, stmt, pi )
+    verifier( vk, pi )
 
     print( "Success!" )
 
