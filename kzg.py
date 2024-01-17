@@ -3,8 +3,6 @@
 # - Multiple evaluation points using the target polynomial `t`.
 # - Polynomial restriction by adding a shifted calculation as a "check sum".
 # - Improved Zero-Knowledge property by randomly shifting the commitments.
-from functools import reduce
-from operator import add
 from bls12 import bls12_381_symm as bls12_381
 from field import Field
 
@@ -32,8 +30,7 @@ def setup( n, t ):
 # returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
 def commit( H, f ) -> bls12_381:
     assert len(H) >= len(f.coeff)
-    # - Using `reduce`, instead of `sum` to add up without the start value.
-    return reduce(add, [f.coeff[i] * H[i] for i in range(len(f.coeff))])
+    return sum([f.coeff[i] * H[i] for i in range(len(f.coeff))], G*0)
 
 # Prove `f(r_i) = 0` for all roots `r_i` of `t`.
 def prove( pk, f, t ) -> (bls12_381, bls12_381, bls12_381):
