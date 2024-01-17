@@ -27,7 +27,7 @@ Complete examples combining PCS with a simple circuit:
 * [`example-single-op.py`](example-single-op.py): A single operation circuit example.
 * [`example-single-op-optimized.py`](example-single-op-optimized.py): An optimized version of the example above.
 
-The detailed explanation of their implementation is in [`docs/example.md`](docs/kzg.md).
+The detailed explanation of their implementation is in [`docs/example.md`](docs/example.md).
 
 
 ## References
