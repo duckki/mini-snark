@@ -42,11 +42,13 @@ def verifier( vk, r, a, stmt, pi ):
     pi_r, pi_r2, pi_op = pi
 
     # polynomial restriction check
-    assert kzg.verify_shift( vk[2], pi_r, pi_r2 )
+    assert kzg.verify_shift( vk, pi_r, pi_r2 )
 
     # operation check along with the known values
-    # assert: e(pi_l, pi_r) == e(vk[1], pi_op) * e(pi_o, G)
-    assert e(vk[0], pi_r) ** (a/r).val == e(vk[1], pi_op) * e(vk[0], G) ** (stmt/r).val
+    # Checks `p_l * p_r - p_o == h_op * t(s)` using `e`.
+    G_s = vk[0]
+    G_ts = vk[1]
+    assert e(G_s, pi_r) ** (a/r).val == e(pi_op, G_ts) * e(G_s, G) ** (stmt/r).val
 # end def verifier
 
 

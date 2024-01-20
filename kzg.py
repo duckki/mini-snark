@@ -1,8 +1,7 @@
 # The KZG polynomial commitment scheme (PCS) - complete version.
 # Added the following features to the basic KZG version:
 # - Multiple evaluation points using the target polynomial `t`.
-# - Polynomial restriction by adding a shifted calculation as a "check sum".
-# - Improved Zero-Knowledge property by randomly shifting the commitments.
+# - Polynomial restriction by adding a shifted calculation as a "check-sum".
 from bls12 import bls12_381_symm as bls12_381
 from field import Field
 
@@ -26,46 +25,46 @@ def setup( n, t ):
     vk = ( G * s, G * t(s), G * alpha )
     return (pk, vk, s, alpha)
 
-# input `f`: a polynomial to commit
-# returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
+# Commit polynomial `f`.
+# - `H`: one of the sequences from `pk`.
+# - returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
 def commit( H, f ) -> bls12_381:
     assert len(H) >= len(f.coeff)
     return sum([f.coeff[i] * H[i] for i in range(len(f.coeff))], G*0)
 
+# Prove `f(u) = v`.
+# returns the commitment of `(f(x) - v) / (x - u)`.
+def prove_eval( pk, f, u, v ) -> bls12_381:
+    # the quotient polynomial `q`
+    # - `q` should be a polynomial, if f(u) = v.
+    X = FieldElement.X
+    q = (f - v) / (X - u)
+    return commit( pk[0], q )
+
+# Verify the proof `com_h` for `f(u) = v`.
+def verify_eval( vk, com_f, u, v, com_h ) -> bool:
+    # Checks `(s - u) * com_h == com_f - v * G` using `e`.
+    G_s = vk[0]
+    return e(G_s, com_h) == e(com_f + -(v * G) + u * com_h, G)
+
 # Prove `f(r_i) = 0` for all roots `r_i` of `t`.
-def prove( pk, f, t ) -> (bls12_381, bls12_381, bls12_381):
+def prove_roots( pk, f, t ) -> bls12_381:
     # the quotient polynomial `h`
     # - `h` should be a polynomial, if `f` share the same roots of `t`.
     h = f / t
+    return commit( pk[0], h )
 
-    # commit `f` and `h` as the proof
-    com_f = commit( pk[0], f )
-    com_h = commit( pk[0], h )
-    com_f2 = commit( pk[1], f ) # f's shift
+# Verify the proof `com_h` for `f(r_i) = 0` for all roots `r_i` of `t`.
+def verify_roots( vk, com_f, com_h ) -> bool:
+    # Checks: `com_f == com_h * t(s)` using `e`.
+    G_ts = vk[1]
+    return e( com_f, G ) == e( com_h, G_ts )
 
-    # shift all commitments by a random `delta`
-    delta = FieldElement.random_element()
-    return (com_f * delta, com_h * delta, com_f2 * delta)
-
-# Verify at one point: `f(u) = v` via h s.t h(X) = (f(X) - v) / (X - u).
-def verify_point( E_s, com_f, com_h, u, v ) -> bool:
-    # Goal: `(s - u) * com_h == com_f - v * G`
-    return e(E_s, com_h) == e(com_f + -(v * G) + u * com_h, G)
-
-# Verify at roots of t: `f(r) = 0` for all roots `r` of `t` via `h` where
-# - h(X) = f(X) / t(X)
-def verify_roots( E_ts, com_f, com_h ) -> bool:
-    return e( com_f, G ) == e( E_ts, com_h )
-
-# Verify shifted value: f2(X) == f(X) * alpha
-def verify_shift( E_alpha, com_f, com_f2 ) -> bool:
-    return e( com_f2, G ) == e( com_f, E_alpha )
-
-# Verify both roots and shift at the same time.
-def verify( vk, pi ) -> bool:
-    com_f, com_h, com_f2 = pi
-    return  verify_roots( vk[1], com_f, com_h ) \
-        and verify_shift( vk[2], com_f, com_f2 )
+# Verify shifted value: fs(X) == f(X) * alpha
+def verify_shift( vk, com_f, com_fs ) -> bool:
+    # Checks: `com_fs == com_f * alpha` using `e`.
+    G_alpha = vk[2]
+    return e( com_fs, G ) == e( com_f, G_alpha )
 
 
 # ============================================================================
@@ -74,34 +73,64 @@ def verify( vk, pi ) -> bool:
 def unit_test():
     print( "Setting up..." )
     size = 32  # the maximum size of polynomial
-    num_roots = 30  # the # of roots
-    roots = [FieldElement(3) ** i for i in range(num_roots)]
+    k = 30  # the # of roots
+    roots = [FieldElement(7) ** i for i in range(k)]
     t = FieldElement.vanishing_polynomial(roots)
     pk, vk, s, alpha = setup( size, t )
     print( "s:", s )
     print( "alpha:", alpha )
     s, alpha = None, None # discard s and alpha
 
-    # Generate a random polynomial `f` with the same roots as `t`.
+    # Assume Prover and Verifier aggreed on some function `f`.
+    # - Use a random polynomial `f` that shares the same roots with `t`.
+    # - The quotient polynomial `h` is defined as `f / t`.
     f = (FieldElement.X - FieldElement.random_element()) * t
+    h = f / t
 
+    # 1. Prover sends commitments of f, h, fs to Verifier.
     print( "Proving..." )
-    com_f, com_q, com_f2 = prove( pk, f, t )
+    com_f = commit( pk[0], f )
+    com_h = prove_roots( pk, f, t )
+    com_fs = commit( pk[1], f ) # f's shift
     print( "com_f:", com_f )
-    print( "com_q:", com_q )
-    print( "com_f2:", com_f2 )
+    print( "com_h:", com_h )
+    print( "com_fs:", com_fs )
 
-    print( "Verifying..." )
-    assert verify( vk, (com_f, com_q, com_f2) )
+    # 2. Verifier checks the relationship between commitments.
+    assert verify_roots( vk, com_f, com_h ) \
+       and verify_shift( vk, com_f, com_fs )
+
+    # 3. Interactive Oracle Proof
+    for _ in range(2):
+        # 3.1. Verifier sends requests to prove `h(r) = v` at random `r`.
+        r = FieldElement.random_element()
+        v = h(r)  # Verifier evaluates `h(u)` with its own `h`.
+        print( "r:", r )
+        print( "v:", v )
+
+        # 3.2. Prover sends the proof `pi` for `h(r) = v`.
+        pi_h = prove_eval( pk, h, r, v )
+        print( "pi_h:", pi_h )
+
+        # 3.3 Verifier checks the proof `pi_h` against the commitment.
+        assert verify_eval( vk, com_h, r, v, pi_h )
+
+    # Following are extra negative tests.
+    print( "Running extra tests..." )
+
+    def verify( vk, pi ) -> bool:
+        com_f, com_h, com_fs = pi
+        return  verify_roots( vk, com_f, com_h ) \
+            and verify_shift( vk, com_f, com_fs )
 
     wrong_com_f = -com_f
-    assert not verify( vk, (wrong_com_f, com_q, com_f2) )
+    assert not verify( vk, (wrong_com_f, com_h, com_fs) )
 
-    wrong_com_q = -com_q
-    assert not verify( vk, (com_f, wrong_com_q, com_f2) )
+    wrong_com_h = -com_h
+    assert not verify( vk, (com_f, wrong_com_h, com_fs) )
 
-    wrong_com_f2 = -com_f2
-    assert not verify( vk, (com_f, com_q, wrong_com_f2) )
+    wrong_com_f2 = -com_fs
+    assert not verify( vk, (com_f, com_h, wrong_com_f2) )
 
     print( "Success!" )
 

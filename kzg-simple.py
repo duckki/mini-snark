@@ -16,27 +16,27 @@ def setup( n ):
     pp = [G * alpha ** i for i in range(n)]
     return (pp, alpha)
 
-# `f`: a polynomial to commit
-# returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
+# Commit polynomial `f`.
+# - `H`: the sequence from `pp`.
+# - returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
 def commit( H, f ) -> bls12_381:
     assert len(H) >= len(f.coeff)
     return sum([f.coeff[i] * H[i] for i in range(len(f.coeff))], G*0)
 
 # Prove `f(u) = v`.
-def prove( pp, f, u, v ) -> (bls12_381, bls12_381):
+# returns the commitment of `(f(x) - v) / (x - u)`.
+def prove_eval( pp, f, u, v ) -> bls12_381:
     # the quotient polynomial `q`
     # - `q` should be a polynomial, if f(u) = v.
     X = FieldElement.X
     q = (f - v) / (X - u)
+    return commit( pp, q )
 
-    # commit `f` and `q` as the proof
-    com_f = commit( pp, f )
-    com_q = commit( pp, q )
-    return (com_f, com_q)
-
-# Verify `(alpha - u) * com_q == com_f - v * G`.
-def verify( pp, com_f, com_q, u, v ) -> bool:
-    return e(pp[1], com_q) == e(com_f + -(v * G) + u * com_q, G)
+# Verify the proof `com_q` for `f(u) = v`.
+def verify_eval( pp, com_f, u, v, com_q ) -> bool:
+    # Checks `(alpha - u) * com_q == com_f - v * G` using `e`.
+    G_alpha = pp[1]
+    return e(G_alpha, com_q) == e(com_f + -(v * G) + u * com_q, G)
 
 
 # ============================================================================
@@ -47,30 +47,50 @@ def unit_test():
     size = 32  # the size of polynomial
     pp, alpha = setup( size )
     print( "alpha:", alpha )
+    alpha = None # discard alpha
 
-    # Generate a random polynomial `f` and a random point `u`.
+    # Assume Prover and Verifier aggreed on some function `f`.
+    # - Use a random function `f` as an example.
     coeffs = [FieldElement.random_element() for _ in range(size)]
     f = FieldElement.Polynomial( coeffs )
-    u = FieldElement.random_element()
-    v = f(u)
 
-    print( "Proving..." )
-    com_f, com_q = prove( pp, f, u, v )
+    # 1. Prover sends the commitment of its `f` to Verifier.
+    com_f = commit( pp, f )
     print( "com_f:", com_f )
-    print( "com_q:", com_q )
 
-    print( "Verifying..." )
-    assert verify( pp, com_f, com_q, u, v )
+    # 2. Interactive Oracle Proof
+    for _ in range(2):
+        # 2.1. Verifier sends requests to prove `f(u) = v` at random `u`.
+        u = FieldElement.random_element()
+        v = f(u)  # Verifier evaluates `f(u)` with its own `f`.
+        print( "u:", u )
+        print( "v:", v )
+
+        # 2.2. Prover sends the proof `pi` for `f(u) = v`.
+        print( "Proving..." )
+        pi = prove_eval( pp, f, u, v )
+        print( "pi:", pi )
+
+        # 2.3. Verifier checks the proof `pi` against the commitment.
+        print( "Verifying..." )
+        assert verify_eval( pp, com_f, u, v, pi )
+
+    # Following are extra negative tests.
+    print( "Running extra tests..." )
 
     wrong_u = u + 1
-    assert not verify( pp, com_f, com_q, wrong_u, v )
+    assert not verify_eval( pp, com_f, wrong_u, v, pi )
 
     wrong_v = v - 1
-    assert not verify( pp, com_f, com_q, u, wrong_v )
+    assert not verify_eval( pp, com_f, u, wrong_v, pi )
 
     u2 = FieldElement.random_element()
     v2 = f(u2)
-    assert not verify( pp, com_f, com_q, u2, v2 )
+    assert not verify_eval( pp, com_f, u2, v2, pi )
+
+    coeffs2 = [FieldElement.random_element() for _ in range(size)]
+    wrong_pi = commit( pp, FieldElement.Polynomial( coeffs2 ) )
+    assert not verify_eval( pp, com_f, u, v, wrong_pi )
 
     print( "Success!" )
 

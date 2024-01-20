@@ -40,36 +40,36 @@ def setup( n ):
 
 ### Prover
 
-The prover has two functions: `commit` and `prove`. Their implementation follows the description of Dan's presentation.
+The prover has two functions: `commit` and `prove_eval`. Their implementation follows the description of Dan's presentation.
 
 ```python
-# input `f`: a polynomial to commit
-# returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
+# Commit polynomial `f`.
+# - `H`: the sequence from `pp`.
+# - returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
 def commit( H, f ):
     return sum([f.coeff[i] * H[i] for i in range(len(f.coeff))])
 ```
 
 ```python
-def prove( pp, f, u, v ):
+# Prove `f(u) = v`.
+# returns the commitment of `(f(x) - v) / (x - u)`.
+def prove_eval( pp, f, u, v ):
     # the quotient polynomial `q`
     # - `q` should be a polynomial, if f(u) = v.
     X = FieldElement.X
     q = (f - v) / (X - u)
-
-    # commit `f` and `q` as the proof
-    com_f = commit( pp, f )
-    com_q = commit( pp, q )
-    return (com_f, com_q)
+    return commit( pp, q )
 ```
 
-In `prove`, `FieldElement.X` stands for a simple polynomial `x` (aka the identify function like `id(x) = x`).
+In `prove_eval`, `FieldElement.X` stands for a simple polynomial `x` (aka the identify function like `id(x) = x`).
 
 ### Verifier
 
 The verifier is really interesting. Its function body is just one line of code.
 
 ```python
-def verify( pp, com_f, com_q, u, v ) -> bool:
+# Verify the proof `com_q` for `f(u) = v`.
+def verify_eval( pp, com_f, com_q, u, v ) -> bool:
     return e(pp[1], com_q) == e(com_f + -(v * G) + u * com_q, G)
 ```
 
@@ -85,7 +85,7 @@ The actual verification condition is `(alpha - u) * com_q == com_f - v * G`, whi
 
 The step (5) uses the fact that `com_q` equals `q(alpha) * G` from the definition of `commit`.
 
-At the end, `H1` is stored in `pp[1]` and the other variables are also directly available. Thus, the equality on step (7) can be directly computed, which is implemented in the `verify` function.
+At the end, `H1` is stored in `pp[1]` and the other variables are also directly available. Thus, the equality on step (7) can be directly computed, which is implemented in the `verify_eval` function.
 
 Notice that the decision procedure for (7) must be sound and complete against (1), which is the ultimate goal. That means (1) must imply (7) and (7) must imply (1) as well.
 
@@ -94,13 +94,12 @@ The chain of implication from (1) to (7) is fine. However, the other direction o
 
 ## Complete Version of KZG
 
-The `kzg.py` is the complete version of KZG PCS. It's following a paper by Maksym Petkus, ["Why and how zk-SNARK works" (2019)](https://arxiv.org/abs/1906.07221). To follow the paper's notation, I renamed the secret key to `s`, from `alpha` and the new `alpha` represents the random shift value.
+The `kzg.py` is the reusable version of KZG PCS. It's following a paper by Maksym Petkus, ["Why and how zk-SNARK works" (2019)](https://arxiv.org/abs/1906.07221). To follow the paper's notation, I renamed the secret key to `s`, from `alpha` and the new `alpha` represents the random shift value.
 
 Following features were added on top of the simplified version of KZG:
 
 - Multiple evaluation points using the target polynomial `t`.
 - Polynomial restriction by adding a shifted calculation as a "check sum".
-- Improved Zero-Knowledge property by randomly shifting the commitments in the prover.
 
 ### Trusted Setup
 
@@ -125,61 +124,85 @@ The proving key contains two series of encrypted keys: one for secret group elem
 
 ### Prover
 
-The `commit` function is same as before. The `prove` function takes the target polynomial `t`. Instead of checking `f(u) = v`, the function now checks `f` shares the same roots of `t`'s roots.
+The `commit` and `prove_eval` functions are the same as before.
 
 ```python
-# input `f`: a polynomial to commit
-# returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
+# Commit polynomial `f`.
+# - `H`: one of the sequences from `pk`.
+# - returns `f0 * H0 + f1 * H1 + ... + fd * Hd` (`d` is the degree of `f`).
 def commit( H, f ):
     return sum([f.coeff[i] * H[i] for i in range(len(f.coeff))])
 
+# Prove `f(u) = v`.
+# returns the commitment of `(f(x) - v) / (x - u)`.
+def prove_eval( pk, f, u, v ):
+    # the quotient polynomial `q`
+    # - `q` should be a polynomial, if f(u) = v.
+    X = FieldElement.X
+    q = (f - v) / (X - u)
+    return commit( pk[0], q )
+```
+
+The `prove_roots` function takes the target polynomial `t`. Instead of checking `f(u) = v`, the function now proves that `f` shares the same roots of `t`'s.
+
+```python
 # Prove `f(r_i) = 0` for all roots `r_i` of `t`.
-def prove( pk, f, t ):
+def prove_roots( pk, f, t ):
     # the quotient polynomial `h`
     # - `h` should be a polynomial, if `f` share the same roots of `t`.
     h = f / t
-
-    # commit `f` and `h` as the proof
-    com_f = commit( pk[0], f )
-    com_h = commit( pk[0], h )
-    com_f2 = commit( pk[1], f ) # f's shift
-
-    # shift all commitments by a random `delta`
-    delta = FieldElement.random_element()
-    return (com_f * delta, com_h * delta, com_f2 * delta)
+    return commit( pk[0], h )
 ```
-
-Also, the return values are shifted by a random `delta` to obfuscate proofs.
 
 
 ### Verifier
 
-The verifier needs to check two conditions now.
-
-1. `h` has the cofactors of polynomial `f`: `com_f == t(s) * com_h`.
-2. Prover's evaluation was restricted to the encrypted `s` values by verifying the cryptographic check sum: `com_f2 == com_f * alpha`.
+The `verify_eval` function is the same as before.
 
 ```python
-# Verify `com_f == t(s) * com_h` and `com_f2 == com_f * alpha`.
-def verify( vk, com_f, com_h, com_f2 ) -> bool:
-    return  e( com_f, G ) == e( vk[0], com_h ) \
-        and e( com_f2, G ) == e( com_f, vk[1] )
+# Verify the proof `com_h` for `f(u) = v`.
+def verify_eval( vk, com_f, u, v, com_h ) -> bool:
+    # Checks `(s - u) * com_h == com_f - v * G` using `e`.
+    G_s = vk[0]
+    return e(G_s, com_h) == e(com_f + -(v * G) + u * com_h, G)
 ```
 
-Both checks can only be determined using the pairing function `e`.
+This verifer does not check the `f`'s evaluation. Instead, it checks `h`'s evaluations. The benefit is that the polynomial `h` is much simpler than `f`. Thus, the verifier can be simpler and more efficient.
 
-Deriving the first condition's computation:
+The new functions `verify_roots` checks the relationship between the commitments of `f` and `h`.
 
-1. `com_f == t(s) * com_h`
+```python
+# Verify the proof `com_h` for `f(r_i) = 0` for all roots `r_i` of `t`.
+def verify_roots( vk, com_f, com_h ) -> bool:
+    # Checks: `com_f == com_h * t(s)` using `e`.
+    G_ts = vk[1]
+    return e( com_f, G ) == e( com_h, G_ts )
+```
+
+The verifier also checks that prover's evaluation was restricted to the encrypted `s` values by verifying the cryptographic check sum: `com_fs == com_f * alpha`.
+
+```python
+# Verify shifted value: fs(X) == f(X) * alpha
+def verify_shift( vk, com_f, com_fs ) -> bool:
+    # Checks: `com_fs == com_f * alpha` using `e`.
+    G_alpha = vk[2]
+    return e( com_fs, G ) == e( com_f, G_alpha )
+```
+
+Both `verify_roots` and `verify_shift` can only be determined using the pairing function `e`.
+
+Deriving the `verify_roots`'s computation:
+
+1. `com_f == com_h * t(s)`
 2. `e(com_f, G) == e(t(s) * com_h, G)`   -- injectivity of `e`
 3. `e(com_f, G) == e(t(s) * h(s) * G, G)`  -- definition of `com_h`
-4. `e(com_f, G) == e(t(s) * G, h(s) * G)`  -- bilinearity of `e`
-4. `e(com_f, G) == e(t(s) * G, com_h`  -- definition of `com_h`
-5. `e(com_f, G) == e(vk[0], com_h)`  -- definition of `vk[0]`
+4. `e(com_f, G) == e(h(s) * G, t(s) * G)`  -- bilinearity of `e`
+4. `e(com_f, G) == e(com_h, t(s) * G)`  -- definition of `com_h`
+5. `e(com_f, G) == e(com_h, vk[1])`  -- definition of `vk[1]`
 
-Deriving the second condition's computation:
+Deriving the `verify_shift`'s computation:
 
-1. `com_f2 == com_f * alpha`
-2. `e(com_f2, G) == e(com_f * alpha, G)`   -- injectivity of `e`
-3. `e(com_f2, G) == e(com_f, G * alpha)`  -- bilinearity of `e`
-4. `e(com_f2, G) == e(com_f, vk[1])`  -- definition of `vk[1]`
+1. `com_fs == com_f * alpha`
+2. `e(com_fs, G) == e(com_f * alpha, G)`   -- injectivity of `e`
+3. `e(com_fs, G) == e(com_f, G * alpha)`  -- bilinearity of `e`
+4. `e(com_fs, G) == e(com_f, vk[2])`  -- definition of `vk[2]`
