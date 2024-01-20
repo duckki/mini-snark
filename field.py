@@ -26,12 +26,14 @@ class Field:
         self.order = order
         self.Polynomial = self.make_Polynomial_ctor()
 
+    @property
     def zero(self):
         """
         Obtains the zero element of the field.
         """
         return FieldElement(self, 0)
 
+    @property
     def one(self):
         """
         Obtains the unit element of the field.
@@ -67,7 +69,7 @@ class Field:
         """
         Constructs the monomial `coefficient * x**degree`.
         """
-        return Polynomial(self, [self.zero()] * degree + [coefficient])
+        return Polynomial(self, [self.zero] * degree + [coefficient])
 
     # Constructs a specific polynomial `x`.
     @property
@@ -75,14 +77,14 @@ class Field:
         """
         Constructs the polynomial `x`.
         """
-        return self.monomial(1, self.one())
+        return self.monomial(1, self.one)
 
     def vanishing_polynomial( self, roots ):
         """
         returns: p(X) = (X-r1)*(X-r2)*...*(X-rn)
         """
         X = self.X
-        p = self.monomial(0, self.one()) # p(x) = 1
+        p = self.monomial(0, self.one) # p(x) = 1
         for r in roots:
             p *= (X - r)
         return p
@@ -114,7 +116,7 @@ class FieldElement:
         return isinstance(other, FieldElement) and self.val == other.val
 
     def __neg__(self):
-        return self.field.zero() - self
+        return self.field.zero - self
 
     def __add__(self, other):
         other = self.field(other)
@@ -229,14 +231,14 @@ class Polynomial:
 
     def __add__(self, other):
         other = self.typecast(other)
-        zip_poly = zip_longest(self.coeff, other.coeff, fillvalue=self.field.zero())
+        zip_poly = zip_longest(self.coeff, other.coeff, fillvalue=self.field.zero)
         return Polynomial(self.field, [l + r for (l, r) in zip_poly])
 
     __radd__ = __add__  # To support <int> + <Polynomial> (as in `1 + x + x**2`).
 
     def __sub__(self, other):
         other = self.typecast(other)
-        zip_poly = zip_longest(self.coeff, other.coeff, fillvalue=self.field.zero())
+        zip_poly = zip_longest(self.coeff, other.coeff, fillvalue=self.field.zero)
         return Polynomial(self.field, [l - r for (l, r) in zip_poly])
 
     def __rsub__(self, other):  # To support <int> - <Polynomial> (as in `1 - x + x**2`).
@@ -287,7 +289,7 @@ class Polynomial:
             return [], []
         rem = pol1
         deg_dif = len(rem) - len(pol2)
-        quotient = [self.field.zero()] * (deg_dif + 1)
+        quotient = [self.field.zero] * (deg_dif + 1)
         g_msc_inv = pol2[-1].inverse()
         while deg_dif >= 0:
             tmp = rem[-1] * g_msc_inv
@@ -295,7 +297,7 @@ class Polynomial:
             last_non_zero = deg_dif - 1
             for i, coef in enumerate(pol2, deg_dif):
                 rem[i] = rem[i] - (tmp * coef)
-                if rem[i] != self.field.zero():
+                if rem[i] != self.field.zero:
                     last_non_zero = i
             # Eliminate trailing zeroes (i.e. make r end with its last non-zero coefficient).
             rem = rem[:last_non_zero + 1]
@@ -392,7 +394,7 @@ def calculate_lagrange_polynomials(x_values):
     assert len(x_values) > 0
     field = x_values[0].field
     lagrange_polynomials = []
-    monomials = [field.monomial(1, field.one()) -
+    monomials = [field.monomial(1, field.one) -
                  field.monomial(0, x) for x in x_values]
     numerator = prod(monomials)
     for j in range(len(x_values)):
@@ -440,7 +442,7 @@ def interpolate_poly(x_values, y_values):
 def unit_test():
     FF = Field(7)
 
-    print( FF.zero(), FF.one() )
+    print( FF.zero, FF.one )
     print( FF(6) + FF(3) )
     print( FF(6) + 3 )
     print( FF(6) - 1 )
